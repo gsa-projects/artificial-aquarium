@@ -1,6 +1,7 @@
 package neat;
 
 import data_structures.RandomHashSet;
+import data_structures.RandomSelector;
 import genome.EdgeGene;
 import genome.Genome;
 import genome.NodeGene;
@@ -9,7 +10,8 @@ import java.util.HashMap;
 
 public class Neat {
     public static final int MAX_NODES = (int) Math.pow(2, 20);
-    private final double C1 = 1, C2 = 1, C3 = 1;
+    private final double C1 = 1, C2 = 1, C3 = 1, CP = 4;
+    private double SURVIVAL_RATE = 0.8;
     private double WEIGHT_SHIFT_STRENGTH = 0.3;
     private double WEIGHT_RANDOM_STRENGTH = 1;
     private double PROBABILITY_MUTATE_LINK = 0.4;
@@ -20,6 +22,8 @@ public class Neat {
 
     private final HashMap<EdgeGene, EdgeGene> allEdges = new HashMap<>();
     private final RandomHashSet<NodeGene> allNodes = new RandomHashSet<>();
+    private RandomHashSet<Client> clients = new RandomHashSet<>();
+    private RandomHashSet<Species> species = new RandomHashSet<>();
 
     private int inputSize;
     private int outputSize;
@@ -46,6 +50,7 @@ public class Neat {
 
         allEdges.clear();
         allNodes.clear();
+        this.clients.clear();
 
         for (int i = 0; i < inputSize; i++) {
             NodeGene n = getNode();
@@ -62,18 +67,41 @@ public class Neat {
         }
 
         // edges
-        for (int i = 0; i < inputSize; i++) {
-            for (int j = 0; j < outputSize; j++) {
-                EdgeGene e = getEdge(allNodes.get(i), allNodes.get(inputSize + j));
-                e.setWeight(Math.random() * 2 - 1);
-                allEdges.put(e, e);
-            }
+//        for (int i = 0; i < inputSize; i++) {
+//            for (int j = 0; j < outputSize; j++) {
+//                EdgeGene e = getEdge(allNodes.get(i), allNodes.get(inputSize + j));
+//                e.setWeight(Math.random() * 2 - 1);
+//                allEdges.put(e, e);
+//            }
+//        }
+
+        for (int i = 0; i < maxClients; i++) {
+            Client c = new Client();
+            c.setGenome(emptyGenome());
+            c.generateCalculator();
+            this.clients.add(c);
         }
+    }
+
+    public void printSpecies() {
+        System.out.println("-------------------");
+        for (Species s : species.getData()) {
+            System.out.println(s + "\t" + s.getScore() + "\t" + s.size());
+        }
+    }
+
+    public Client getClient(int index) {
+        return clients.get(index);
+    }
+
+    public RandomHashSet<Client> getClients() {
+        return clients;
     }
 
     // copy edge
     public static EdgeGene getEdge(EdgeGene edge) {
         EdgeGene e = new EdgeGene(edge.getFrom(), edge.getTo());
+        e.setInnovation(edge.getInnovation());
         e.setWeight(edge.getWeight());
         e.setEnabled(edge.isEnabled());
         return e;
@@ -105,6 +133,81 @@ public class Neat {
         return getNode();
     }
 
+    public void evolve() {
+        generateSpecies();
+        kill();
+        removeExtinctSpecies();
+        reproduce();
+        mutate();
+
+        for (Client c : clients.getData()) {
+            c.generateCalculator();
+        }
+    }
+
+    private void mutate() {
+        for (Client c : clients.getData()) {
+            c.getGenome().mutate();
+        }
+    }
+
+    private void reproduce() {
+        RandomSelector<Species> selector = new RandomSelector<>();
+
+        for (Species s : species.getData()) {
+            selector.add(s, s.getScore());
+        }
+
+        for (Client c : clients.getData()) {
+            if (c.getSpecies() == null) {
+                Species s = selector.random();
+                c.setGenome(s.breed());
+                s.forcePut(c);
+            }
+        }
+    }
+
+    private void removeExtinctSpecies() {
+        for (int i = species.size() - 1; i >= 0; i--) {
+            if (species.get(i).size() <= 1) {
+                species.get(i).goExtinct();
+                species.remove(i);
+            }
+        }
+    }
+
+    private void kill() {
+        for (Species s : species.getData()) {
+            s.kill(1 - SURVIVAL_RATE);
+        }
+    }
+
+    private void generateSpecies() {
+        for (Species s : species.getData()) {
+            s.reset();
+        }
+
+        for (Client c : clients.getData()) {
+            if (c.getSpecies() != null)
+                continue;
+
+            boolean found = false;
+            for (Species s : species.getData()) {
+                if (s.put(c)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                species.add(new Species(c));
+            }
+        }
+        
+        for (Species s : species.getData()) {
+            s.evaluateScore();
+        }
+    }
+
     public double getC1() {
         return C1;
     }
@@ -115,6 +218,10 @@ public class Neat {
 
     public double getC3() {
         return C3;
+    }
+
+    public double getCP() {
+        return CP;
     }
 
     public double getWeightShiftStrength() {

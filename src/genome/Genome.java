@@ -1,5 +1,6 @@
 package genome;
 
+import calculations.Calculator;
 import data_structures.RandomHashSet;
 import neat.Neat;
 
@@ -7,16 +8,34 @@ public class Genome {
     private final RandomHashSet<EdgeGene> edges = new RandomHashSet<>();
     private final RandomHashSet<NodeGene> nodes = new RandomHashSet<>();
     private final Neat neat;
+    private Calculator calculator;
 
     public Genome(Neat neat) {
         this.neat = neat;
     }
 
+    public void generateCalculator() {
+        this.calculator = new Calculator(this);
+    }
+
+    public double[] calculate (double... arr) {
+        if (this.calculator != null) {
+            return calculator.calculate(arr);
+        }
+
+        return null;
+    }
+
     public double distance(Genome g2) {
         Genome g1 = this;
 
-        int highestInnovation1 = g1.getEdges().get(g1.getEdges().size() - 1).getInnovation();
-        int highestInnovation2 = g2.getEdges().get(g2.getEdges().size() - 1).getInnovation();
+        int highestInnovation1 = 0;
+        if (g1.getEdges().size() != 0)
+            highestInnovation1 = g1.getEdges().get(g1.getEdges().size() - 1).getInnovation();
+
+        int highestInnovation2 = 0;
+        if (g2.getEdges().size() != 0)
+            highestInnovation2 = g2.getEdges().get(g2.getEdges().size() - 1).getInnovation();
 
         // should be g1.innovation > g2.innovation
         if (highestInnovation1 < highestInnovation2) {
