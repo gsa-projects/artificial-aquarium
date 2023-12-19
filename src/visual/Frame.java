@@ -157,7 +157,7 @@ public class Frame extends JFrame {
 //        }
 //
 //        for (Client c : neat.getClients().getData()) {
-//            c.setScore(c.calculate(in)[0]);
+//            c.setScore(c.calculate(in)[0]);   
 //        }
 
         new Frame(neat.emptyGenome());
